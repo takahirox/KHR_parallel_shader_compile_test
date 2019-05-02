@@ -1,0 +1,73 @@
+<html>
+	<head></head>
+	<body>
+		<div>
+			<button id='button' onclick="runTests()" disabled>run</button>
+			<span id="message"></span>
+		</div>
+		<br />
+		<div>gl.LINK_STATUS: <span id="LINK_STATUS"></span></div><br />
+		<textarea id='code' cols="80" rows="25" readonly></textarea>
+		<script>
+			const canvas = document.createElement('canvas');
+			const gl = canvas.getContext('webgl');
+			let vertexShaderCode, fragmentShaderCode;
+
+			const messageSpan = document.getElementById('message');
+
+			function init() {
+				Promise.all([
+					loadShaderCode('vertex.glsl').then(text => {vertexShaderCode = text;}),
+					loadShaderCode('fragment.glsl').then(text => {fragmentShaderCode = text;})
+				]).then(_ => {
+					messageSpan.innerText = 'Click run to start.';
+					document.getElementById('button').disabled = false;
+				});
+			}
+
+			function loadShaderCode(url) {
+				return new Promise(resolve => {
+					var request = new XMLHttpRequest();
+					request.responseType = 'text';
+					request.addEventListener('load', function() {
+						resolve(request.response.trim());
+					});
+					request.open('GET', url, true);
+					request.send(null);
+				});
+			}
+
+			function runTest(id) {
+				const vertexShader = gl.createShader(gl.VERTEX_SHADER);
+				gl.shaderSource(vertexShader, vertexShaderCode);
+				gl.compileShader(vertexShader);
+
+				const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+				gl.shaderSource(fragmentShader, fragmentShaderCode);
+				gl.compileShader(fragmentShader);
+
+				const program = gl.createProgram();
+
+				gl.attachShader(program, vertexShader);
+				gl.attachShader(program, fragmentShader);
+
+				gl.linkProgram(program);
+
+				const startTime = performance.now();
+				const status = gl.getProgramParameter(program, gl.LINK_STATUS);
+				const endTime = performance.now();
+
+				document.getElementById(id).innerText = (endTime - startTime).toFixed(2) + 'ms, ' + status;
+			}
+
+			function runTests() {
+				runTest('LINK_STATUS');
+			}
+
+			document.getElementById('code').value = runTest.toString().replace(/^\t{3}/gm, '').replace(/\t/g, '  ');
+
+			messageSpan.innerText = 'Loading shader texts.';
+			init();
+		</script>
+	</body>
+</html>
