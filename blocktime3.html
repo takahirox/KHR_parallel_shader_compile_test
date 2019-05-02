@@ -1,0 +1,116 @@
+<html>
+	<head></head>
+	<body>
+		<div>
+			<button id='button' onclick="runTests()" disabled>run</button>
+			<span id="message"></span>
+		</div>
+		<br />
+		<div>Dependency: <span id="Dependency"></span>ms</div>
+		<div>NonDependency: <span id="NonDependency"></span>ms</div><br />
+		Dependency Code<br />
+		<textarea id='dependencyCode' cols="80" rows="20" readonly></textarea><br /><br />
+		NonDependency Code<br />
+		<textarea id='nonDependencyCode' cols="80" rows="34" readonly></textarea>
+		<script>
+			const canvas = document.createElement('canvas');
+			const gl = canvas.getContext('webgl');
+			let vertexShaderCode, fragmentShaderCode;
+
+			const messageSpan = document.getElementById('message');
+
+			function init() {
+				Promise.all([
+					loadShaderCode('vertex.glsl').then(text => {vertexShaderCode = text;}),
+					loadShaderCode('fragment.glsl').then(text => {fragmentShaderCode = text;})
+				]).then(_ => {
+					messageSpan.innerText = 'Click run to start.';
+					document.getElementById('button').disabled = false;
+				});
+			}
+
+			function loadShaderCode(url) {
+				return new Promise(resolve => {
+					var request = new XMLHttpRequest();
+					request.responseType = 'text';
+					request.addEventListener('load', function() {
+						resolve(request.response.trim());
+					});
+					request.open('GET', url, true);
+					request.send(null);
+				});
+			}
+
+			function runDependency() {
+				const vertexShader = gl.createShader(gl.VERTEX_SHADER);
+				const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+				const program = gl.createProgram();
+
+				gl.shaderSource(vertexShader, vertexShaderCode);
+				gl.shaderSource(fragmentShader, fragmentShaderCode);
+				gl.compileShader(vertexShader);
+				gl.compileShader(fragmentShader);
+				gl.attachShader(program, vertexShader);
+				gl.attachShader(program, fragmentShader);
+				gl.linkProgram(program);
+
+				const startTime = performance.now();
+				gl.getProgramParameter(program, gl.LINK_STATUS);
+				const endTime = performance.now();
+
+				return Promise.resolve(endTime - startTime);
+			}
+
+			function runNonDependency() {
+				return new Promise((resolve, reject) => {
+					const vertexShader = gl.createShader(gl.VERTEX_SHADER);
+					const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+					const program = gl.createProgram();
+					const vertexShader2 = gl.createShader(gl.VERTEX_SHADER);
+					const fragmentShader2 = gl.createShader(gl.FRAGMENT_SHADER);
+					const program2 = gl.createProgram();
+
+					gl.shaderSource(vertexShader, vertexShaderCode);
+					gl.shaderSource(fragmentShader, fragmentShaderCode);
+					gl.compileShader(vertexShader);
+					gl.compileShader(fragmentShader);
+					gl.attachShader(program, vertexShader);
+					gl.attachShader(program, fragmentShader);
+					gl.linkProgram(program);
+
+					setTimeout(_ => {
+						gl.shaderSource(vertexShader2, vertexShaderCode);
+						gl.shaderSource(fragmentShader2, fragmentShaderCode);
+						gl.compileShader(vertexShader2);
+						gl.compileShader(fragmentShader2);
+						gl.attachShader(program2, vertexShader2);
+						gl.attachShader(program2, fragmentShader2);
+						gl.linkProgram(program2);
+
+						// checking program's link status while compiling program2
+						const startTime = performance.now();
+						gl.getProgramParameter(program, gl.LINK_STATUS);
+						const endTime = performance.now();
+						resolve(endTime - startTime);
+					}, 100);
+				});
+			}
+
+			function runTest(func, id) {
+				return func().then(elapsedTime => {
+					document.getElementById(id).innerText = elapsedTime.toFixed(2);
+				});
+			}
+
+			function runTests() {
+				runTest(runDependency, 'Dependency').then(_ => runTest(runNonDependency, 'NonDependency'));
+			}
+
+			document.getElementById('dependencyCode').value = runDependency.toString().replace(/^\t{3}/gm, '').replace(/\t/g, '  ');
+			document.getElementById('nonDependencyCode').value = runNonDependency.toString().replace(/^\t{3}/gm, '').replace(/\t/g, '  ');
+
+			messageSpan.innerText = 'Loading shader texts.';
+			init();
+		</script>
+	</body>
+</html>
