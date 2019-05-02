@@ -1,0 +1,113 @@
+<html>
+	<head></head>
+	<body>
+		<div>
+			<button id='button' onclick="runTests()" disabled>run</button>
+			<span id="message"></span>
+		</div>
+		<br />
+		<div>programs#: <span id="programsNum"></span></div>
+		<div>Sequntial: <span id="Sequential"></span></div>
+		<div>Block: <span id="Block"></span></div><br />
+		Sequential Code<br />
+		<textarea id='sequentialCode' cols="80" rows="17" readonly></textarea><br /><br />
+		Block Code<br />
+		<textarea id='blockCode' cols="80" rows="28" readonly></textarea>
+		<script>
+			const canvas = document.createElement('canvas');
+			const gl = canvas.getContext('webgl');
+			let vertexShaderCode, fragmentShaderCode;
+
+			const messageSpan = document.getElementById('message');
+
+			const programsNum = location.href.split('?')[1] || 10;
+
+			function init() {
+				Promise.all([
+					loadShaderCode('vertex.glsl').then(text => {vertexShaderCode = text;}),
+					loadShaderCode('fragment.glsl').then(text => {fragmentShaderCode = text;})
+				]).then(_ => {
+					messageSpan.innerText = 'Click run to start.';
+					document.getElementById('button').disabled = false;
+				});
+			}
+
+			function loadShaderCode(url) {
+				return new Promise(resolve => {
+					var request = new XMLHttpRequest();
+					request.responseType = 'text';
+					request.addEventListener('load', function() {
+						resolve(request.response.trim());
+					});
+					request.open('GET', url, true);
+					request.send(null);
+				});
+			}
+
+			function runSequential() {
+				let status = 0;
+				for(let i = 0; i < programsNum; i++) {
+					const vertexShader = gl.createShader(gl.VERTEX_SHADER);
+					const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+					gl.shaderSource(vertexShader, vertexShaderCode);
+					gl.shaderSource(fragmentShader, fragmentShaderCode);
+					gl.compileShader(vertexShader);
+					gl.compileShader(fragmentShader);
+					const program = gl.createProgram();
+					gl.attachShader(program, vertexShader);
+					gl.attachShader(program, fragmentShader);
+					gl.linkProgram(program);
+					status |= gl.getProgramParameter(program, gl.LINK_STATUS);
+				}
+				return status;
+			}
+
+			function runBlock() {
+				const programs = [];
+				const vertexShaders = [];
+				const fragmentShaders = [];
+				for(let i = 0; i < programsNum; i++) {
+					const vertexShader = gl.createShader(gl.VERTEX_SHADER);
+					const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+					gl.shaderSource(vertexShader, vertexShaderCode);
+					gl.shaderSource(fragmentShader, fragmentShaderCode);
+					gl.compileShader(vertexShader);
+					gl.compileShader(fragmentShader);
+					vertexShaders[i] = vertexShader;
+					fragmentShaders[i] = fragmentShader;
+				}
+				for(let i = 0; i < programsNum; i++) {
+					const program = gl.createProgram();
+					gl.attachShader(program, vertexShaders[i]);
+					gl.attachShader(program, fragmentShaders[i]);
+					gl.linkProgram(program);
+					programs[i] = program;
+				}
+				let status = 0;
+				for(let i = 0; i < programsNum; i++) {
+					status |= gl.getProgramParameter(programs[i], gl.LINK_STATUS);
+				}
+				return status;
+			}
+
+			function runTest(func, id) {
+				const startTime = performance.now();
+				const status = func();
+				const endTime = performance.now();
+				document.getElementById(id).innerText = (endTime - startTime).toFixed(2) + 'ms, ' + status;
+			}
+
+			function runTests() {
+				runTest(runSequential, 'Sequential');
+				runTest(runBlock, 'Block');
+			}
+
+			document.getElementById('programsNum').innerText = programsNum;
+			document.getElementById('sequentialCode').value = runSequential.toString().replace(/^\t{3}/gm, '').replace(/\t/g, '  ');
+			document.getElementById('blockCode').value = runBlock.toString().replace(/^\t{3}/gm, '').replace(/\t/g, '  ');
+
+			messageSpan.innerText = 'Loading shader texts.';
+			init();
+		</script>
+	</body>
+</html>
