@@ -38,6 +38,8 @@
 			}
 
 			function runTest(id) {
+				const startTime = performance.now();
+
 				const vertexShader = gl.createShader(gl.VERTEX_SHADER);
 				gl.shaderSource(vertexShader, vertexShaderCode);
 				gl.compileShader(vertexShader);
@@ -53,7 +55,6 @@
 
 				gl.linkProgram(program);
 
-				const startTime = performance.now();
 				const status = gl.getProgramParameter(program, gl.LINK_STATUS);
 				const endTime = performance.now();
 
