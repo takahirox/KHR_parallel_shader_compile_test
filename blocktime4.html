@@ -9,9 +9,9 @@
 		<div>Sync: <span id="Sync"></span>ms</div>
 		<div>Async: <span id="Async"></span>ms</div><br />
 		Sync Code<br />
-		<textarea id='syncCode' cols="80" rows="20" readonly></textarea><br /><br />
+		<textarea id='syncCode' cols="80" rows="19" readonly></textarea><br /><br />
 		Async Code<br />
-		<textarea id='asyncCode' cols="80" rows="34" readonly></textarea>
+		<textarea id='asyncCode' cols="80" rows="22" readonly></textarea>
 		<script>
 			const canvas = document.createElement('canvas');
 			const gl = canvas.getContext('webgl');
@@ -66,9 +66,6 @@
 					const vertexShader = gl.createShader(gl.VERTEX_SHADER);
 					const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
 					const program = gl.createProgram();
-					const vertexShader2 = gl.createShader(gl.VERTEX_SHADER);
-					const fragmentShader2 = gl.createShader(gl.FRAGMENT_SHADER);
-					const program2 = gl.createProgram();
 
 					gl.shaderSource(vertexShader, vertexShaderCode);
 					gl.shaderSource(fragmentShader, fragmentShaderCode);
