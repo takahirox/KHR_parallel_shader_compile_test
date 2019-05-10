@@ -1,0 +1,145 @@
+<html>
+	<head></head>
+	<body>
+		<div>
+			<button id='button' onclick="runTests()" disabled>run</button>
+			<span id="message"></span>
+		</div>
+		<br />
+		<div>Sync: <span id="Sync"></span>ms</div>
+		<div>Async: <span id="Async"></span>ms</div><br />
+		Sync Code<br />
+		<textarea id='syncCode' cols="80" rows="19" readonly></textarea><br /><br />
+		Async Code<br />
+		<textarea id='asyncCode' cols="80" rows="28" readonly></textarea>
+		<script>
+			const canvas = document.createElement('canvas');
+			const gl = canvas.getContext('webgl');
+			const ext = gl.getExtension('KHR_parallel_shader_compile');
+			let vertexShaderCode, fragmentShaderCode;
+
+			const messageSpan = document.getElementById('message');
+
+			function init() {
+				Promise.all([
+					loadShaderCode('vertex.glsl').then(text => {vertexShaderCode = text;}),
+					loadShaderCode('fragment.glsl').then(text => {fragmentShaderCode = text;})
+				]).then(_ => {
+					if(validateShader()) {
+						messageSpan.innerText = 'Click run to start.';
+						document.getElementById('button').disabled = false;
+					} else {
+						messageSpan.innerText = 'Shaders look incorrect. See the console.';
+					}
+				});
+			}
+
+			function loadShaderCode(url) {
+				return new Promise(resolve => {
+					var request = new XMLHttpRequest();
+					request.responseType = 'text';
+					request.addEventListener('load', function() {
+						resolve(request.response.trim());
+					});
+					request.open('GET', url, true);
+					request.send(null);
+				});
+			}
+
+			function validateShader() {
+				const vertexShader = gl.createShader(gl.VERTEX_SHADER);
+				gl.shaderSource(vertexShader, vertexShaderCode);
+				gl.compileShader(vertexShader);
+
+				const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+				gl.shaderSource(fragmentShader, fragmentShaderCode);
+				gl.compileShader(fragmentShader);
+
+				const program = gl.createProgram();
+
+				gl.attachShader(program, vertexShader);
+				gl.attachShader(program, fragmentShader);
+
+				gl.linkProgram(program);
+
+				if(!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+				        console.error("Program link error:", gl.getProgramInfoLog(program));
+					if(!gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS)) {
+						console.error("Vertex shader compile error:", gl.getShaderInfoLog(vertexShader));
+					}
+					if(!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS)) {
+						console.error("Fragment shader compile error:", gl.getShaderInfoLog(fragmentShader));
+					}
+					return false;
+				}
+
+				return true;
+			}
+
+			function runSync() {
+				const vertexShader = gl.createShader(gl.VERTEX_SHADER);
+				const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+				const program = gl.createProgram();
+
+				gl.shaderSource(vertexShader, vertexShaderCode);
+				gl.shaderSource(fragmentShader, fragmentShaderCode);
+				gl.compileShader(vertexShader);
+				gl.compileShader(fragmentShader);
+				gl.attachShader(program, vertexShader);
+				gl.attachShader(program, fragmentShader);
+				gl.linkProgram(program);
+
+				const startTime = performance.now();
+				gl.getProgramParameter(program, gl.ACTIVE_ATTRIBUTES);
+				const endTime = performance.now();
+
+				return Promise.resolve(endTime - startTime);
+			}
+
+			function runAsync() {
+				return new Promise((resolve, reject) => {
+					const vertexShader = gl.createShader(gl.VERTEX_SHADER);
+					const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+					const program = gl.createProgram();
+
+					gl.shaderSource(vertexShader, vertexShaderCode);
+					gl.shaderSource(fragmentShader, fragmentShaderCode);
+					gl.compileShader(vertexShader);
+					gl.compileShader(fragmentShader);
+					gl.attachShader(program, vertexShader);
+					gl.attachShader(program, fragmentShader);
+					gl.linkProgram(program);
+
+					function check() {
+						if(gl.getProgramParameter(program, ext.COMPLETION_STATUS_KHR)) {
+							const startTime = performance.now();
+							gl.getProgramParameter(program, gl.ACTIVE_ATTRIBUTES);
+							const endTime = performance.now();
+							resolve(endTime - startTime);
+						} else {
+							requestAnimationFrame(check);
+						}
+					}
+
+					check();
+				});
+			}
+
+			function runTest(func, id) {
+				return func().then(elapsedTime => {
+					document.getElementById(id).innerText = elapsedTime.toFixed(2);
+				});
+			}
+
+			function runTests() {
+				runTest(runSync, 'Sync').then(_ => runTest(runAsync, 'Async'));
+			}
+
+			document.getElementById('syncCode').value = runSync.toString().replace(/^\t{3}/gm, '').replace(/\t/g, '  ');
+			document.getElementById('asyncCode').value = runAsync.toString().replace(/^\t{3}/gm, '').replace(/\t/g, '  ');
+
+			messageSpan.innerText = 'Loading shader texts.';
+			init();
+		</script>
+	</body>
+</html>
