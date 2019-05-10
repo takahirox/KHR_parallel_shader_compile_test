@@ -24,8 +24,12 @@
 					loadShaderCode('vertex.glsl').then(text => {vertexShaderCode = text;}),
 					loadShaderCode('fragment.glsl').then(text => {fragmentShaderCode = text;})
 				]).then(_ => {
-					messageSpan.innerText = 'Click run to start.';
-					document.getElementById('button').disabled = false;
+					if(validateShader()) {
+						messageSpan.innerText = 'Click run to start.';
+						document.getElementById('button').disabled = false;
+					} else {
+						messageSpan.innerText = 'Shaders look incorrect. See the console.';
+					}
 				});
 			}
 
@@ -39,6 +43,36 @@
 					request.open('GET', url, true);
 					request.send(null);
 				});
+			}
+
+			function validateShader() {
+				const vertexShader = gl.createShader(gl.VERTEX_SHADER);
+				gl.shaderSource(vertexShader, vertexShaderCode);
+				gl.compileShader(vertexShader);
+
+				const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+				gl.shaderSource(fragmentShader, fragmentShaderCode);
+				gl.compileShader(fragmentShader);
+
+				const program = gl.createProgram();
+
+				gl.attachShader(program, vertexShader);
+				gl.attachShader(program, fragmentShader);
+
+				gl.linkProgram(program);
+
+				if(!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+				        console.error("Program link error:", gl.getProgramInfoLog(program));
+					if(!gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS)) {
+						console.error("Vertex shader compile error:", gl.getShaderInfoLog(vertexShader));
+					}
+					if(!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS)) {
+						console.error("Fragment shader compile error:", gl.getShaderInfoLog(fragmentShader));
+					}
+					return false;
+				}
+
+				return true;
 			}
 
 			function runSync() {
@@ -55,7 +89,7 @@
 				gl.linkProgram(program);
 
 				const startTime = performance.now();
-				gl.getProgramParameter(program, gl.LINK_STATUS);
+				gl.getProgramParameter(program, gl.ACTIVE_ATTRIBUTES);
 				const endTime = performance.now();
 
 				return Promise.resolve(endTime - startTime);
@@ -77,7 +111,7 @@
 
 					setTimeout(_ => {
 						const startTime = performance.now();
-						gl.getProgramParameter(program, gl.LINK_STATUS);
+						gl.getProgramParameter(program, gl.ACTIVE_ATTRIBUTES);
 						const endTime = performance.now();
 						resolve(endTime - startTime);
 					}, 100);
