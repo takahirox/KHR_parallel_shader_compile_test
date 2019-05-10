@@ -138,8 +138,12 @@
 			document.getElementById('syncCode').value = runSync.toString().replace(/^\t{3}/gm, '').replace(/\t/g, '  ');
 			document.getElementById('asyncCode').value = runAsync.toString().replace(/^\t{3}/gm, '').replace(/\t/g, '  ');
 
-			messageSpan.innerText = 'Loading shader texts.';
-			init();
+			if(ext === null) {
+				messageSpan.innerText = 'The browser doesn\'t seem to support KHR_parallel_shader_compile extension.';
+			} else {
+				messageSpan.innerText = 'Loading shader texts.';
+				init();
+			}
 		</script>
 	</body>
 </html>
