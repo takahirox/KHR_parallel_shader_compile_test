@@ -1,0 +1,158 @@
+<html>
+	<head></head>
+	<body>
+		<div>
+			<button id='button' onclick="runTests()" disabled>run</button>
+			<span id="message"></span>
+		</div>
+		<br />
+		<div>Without program3: <span id="WithoutProgram3"></span>ms</div>
+		<div>With program3: <span id="WithProgram3"></span>ms</div><br />
+		Code<br />
+		<textarea id='Code' cols="80" rows="60" readonly></textarea>
+		<script>
+			const canvas = document.createElement('canvas');
+			const gl = canvas.getContext('webgl');
+			const ext = gl.getExtension('KHR_parallel_shader_compile');
+			let vertexShaderCode, fragmentShaderCode;
+
+			const messageSpan = document.getElementById('message');
+
+			function init() {
+				Promise.all([
+					loadShaderCode('vertex.glsl').then(text => {vertexShaderCode = text;}),
+					loadShaderCode('fragment.glsl').then(text => {fragmentShaderCode = text;})
+				]).then(_ => {
+					if(validateShader()) {
+						messageSpan.innerText = 'Click run to start.';
+						document.getElementById('button').disabled = false;
+					} else {
+						messageSpan.innerText = 'Shaders look incorrect. See the console.';
+					}
+				});
+			}
+
+			function loadShaderCode(url) {
+				return new Promise(resolve => {
+					var request = new XMLHttpRequest();
+					request.responseType = 'text';
+					request.addEventListener('load', function() {
+						resolve(request.response.trim());
+					});
+					request.open('GET', url, true);
+					request.send(null);
+				});
+			}
+
+			function validateShader() {
+				const vertexShader = gl.createShader(gl.VERTEX_SHADER);
+				gl.shaderSource(vertexShader, vertexShaderCode);
+				gl.compileShader(vertexShader);
+
+				const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+				gl.shaderSource(fragmentShader, fragmentShaderCode);
+				gl.compileShader(fragmentShader);
+
+				const program = gl.createProgram();
+
+				gl.attachShader(program, vertexShader);
+				gl.attachShader(program, fragmentShader);
+
+				gl.linkProgram(program);
+
+				if(!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+				        console.error("Program link error:", gl.getProgramInfoLog(program));
+					if(!gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS)) {
+						console.error("Vertex shader compile error:", gl.getShaderInfoLog(vertexShader));
+					}
+					if(!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS)) {
+						console.error("Fragment shader compile error:", gl.getShaderInfoLog(fragmentShader));
+					}
+					return false;
+				}
+
+				return true;
+			}
+
+			function runAsync(makeProgram3) {
+				return new Promise((resolve, reject) => {
+					const vertexShader = gl.createShader(gl.VERTEX_SHADER);
+					const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+					const program = gl.createProgram();
+
+					gl.shaderSource(vertexShader, vertexShaderCode);
+					gl.shaderSource(fragmentShader, fragmentShaderCode);
+					gl.compileShader(vertexShader);
+					gl.compileShader(fragmentShader);
+					gl.attachShader(program, vertexShader);
+					gl.attachShader(program, fragmentShader);
+					gl.linkProgram(program);
+
+					const vertexShader2 = gl.createShader(gl.VERTEX_SHADER);
+					const fragmentShader2 = gl.createShader(gl.FRAGMENT_SHADER);
+					const program2 = gl.createProgram();
+
+					gl.shaderSource(vertexShader2, vertexShaderCode);
+					gl.shaderSource(fragmentShader2, fragmentShaderCode);
+					gl.compileShader(vertexShader2);
+					gl.compileShader(fragmentShader2);
+					gl.attachShader(program2, vertexShader2);
+					gl.attachShader(program2, fragmentShader2);
+					gl.linkProgram(program2);
+
+					function check() {
+						if(gl.getProgramParameter(program, ext.COMPLETION_STATUS_KHR) &&
+							gl.getProgramParameter(program2, ext.COMPLETION_STATUS_KHR)) {
+
+							gl.useProgram(program);
+							gl.useProgram(program2);
+
+							if(makeProgram3) {
+								const vertexShader3 = gl.createShader(gl.VERTEX_SHADER);
+								const fragmentShader3 = gl.createShader(gl.FRAGMENT_SHADER);
+								const program3 = gl.createProgram();
+
+								gl.shaderSource(vertexShader3, vertexShaderCode);
+								gl.shaderSource(fragmentShader3, fragmentShaderCode);
+								gl.compileShader(vertexShader3);
+								gl.compileShader(fragmentShader3);
+								gl.attachShader(program3, vertexShader3);
+								gl.attachShader(program3, fragmentShader3);
+								gl.linkProgram(program3);
+							}
+
+							const startTime = performance.now();
+							gl.useProgram(program);
+							gl.useProgram(program2);
+							const endTime = performance.now();
+							resolve(endTime - startTime);
+						} else {
+							requestAnimationFrame(check);
+						}
+					}
+
+					check();
+				});
+			}
+
+			function runTest(func, id, makeProgram3) {
+				return func(makeProgram3).then(elapsedTime => {
+					document.getElementById(id).innerText = elapsedTime.toFixed(2);
+				});
+			}
+
+			function runTests() {
+				runTest(runAsync, 'WithoutProgram3', false).then(_ => runTest(runAsync, 'WithProgram3', true));
+			}
+
+			document.getElementById('Code').value = runAsync.toString().replace(/^\t{3}/gm, '').replace(/\t/g, '  ');
+
+			if(ext === null) {
+				messageSpan.innerText = 'The browser doesn\'t seem to support KHR_parallel_shader_compile extension.';
+			} else {
+				messageSpan.innerText = 'Loading shader texts.';
+				init();
+			}
+		</script>
+	</body>
+</html>
